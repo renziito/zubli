@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#211b38"><meta name="description" content="Practica idiomas escuchando conversaciones reales.">
+<meta name="theme-color" content="#211b38"><meta name="description" content="Aprende idiomas con escenas de películas y series.">
 <title>ZUBLI — El mundo habla. Tú lo entiendes.</title>
 <link rel="manifest" href="./manifest.json"><link rel="stylesheet" href="./css/app.css">
 </head>
@@ -11,16 +11,16 @@
 <main>
 <section id="home" class="panel">
 <p class="eyebrow">APRENDE ESCUCHANDO</p><h1>El mundo habla.<br><em>Tú lo entiendes.</em></h1>
-<p class="lead">Entrena tu oído con clips breves de conversaciones reales.</p>
+<p class="lead">Aprende con escenas de películas y series en el idioma que quieres dominar.</p>
 <div class="filters">
 <label>Idioma de la interfaz<select id="uiLanguage"><option value="es">Español</option><option value="en">English</option></select></label>
 <label>Quiero aprender<select id="targetLanguage"><option value="en">Inglés</option><option value="es">Español</option><option value="fr">Francés</option><option value="de">Alemán</option><option value="it">Italiano</option><option value="ja">Japonés</option></select></label>
-<label>Tema<input id="topic" value="everyday conversation" maxlength="80"></label>
+<label>Filtrar por título o género (opcional)<input id="topic" placeholder="Ej. comedy, Friends, romance" maxlength="80"></label>
 </div>
-<button id="searchBtn" class="primary">Buscar clips de 1–2 minutos</button>
+<button id="searchBtn" class="primary">Buscar escenas de películas y series</button>
 <p id="status" class="status" role="status"></p><div id="results" class="results"></div>
 </section>
-<section id="practice" class="panel hidden"><button id="backBtn" class="quiet">← Volver</button><h2 id="clipTitle"></h2><p class="notice">Este video todavía no tiene una transcripción autorizada y verificada. ZUBLI lo omite como ejercicio para no inventar frases.</p><div id="player" class="player"></div></section>
+<section id="practice" class="panel hidden"><button id="backBtn" class="quiet">← Volver</button><h2 id="clipTitle"></h2><p class="notice">Este video todavía no tiene una transcripción accesible y autorizada. No se puede iniciar el ejercicio de dictado automáticamente.</p><div id="player" class="player"></div></section>
 <section id="progress" class="panel hidden"><h2>Mi progreso</h2><p id="stats"></p><button id="homeBackBtn" class="primary">Volver al inicio</button></section>
 </main><footer>ZUBLI · El mundo habla. Tú lo entiendes.</footer>
 <script type="module" src="./js/app.js"></script>
