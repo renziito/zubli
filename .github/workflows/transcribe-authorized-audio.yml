@@ -1,0 +1,44 @@
+name: Transcribe authorized audio
+on:
+  workflow_dispatch:
+    inputs:
+      input_path:
+        description: Repository path to an authorized audio file
+        required: true
+        type: string
+      language:
+        description: Language code (en, es, fr, de, it, ja)
+        required: true
+        type: string
+      output_path:
+        description: Output JSON path
+        required: true
+        default: pipeline/transcripts/draft.json
+        type: string
+permissions:
+  contents: write
+jobs:
+  transcribe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r pipeline/requirements.txt
+      - name: Validate paths and transcribe authorized file
+        env:
+          INPUT_PATH: ${{ inputs.input_path }}
+          OUTPUT_PATH: ${{ inputs.output_path }}
+          LANGUAGE: ${{ inputs.language }}
+        run: |
+          case "$INPUT_PATH" in pipeline/authorized-audio/*) ;; *) echo "Input must be under pipeline/authorized-audio/"; exit 1;; esac
+          case "$OUTPUT_PATH" in pipeline/transcripts/*.json) ;; *) echo "Output must be under pipeline/transcripts/"; exit 1;; esac
+          python pipeline/transcribe.py --input "$INPUT_PATH" --language "$LANGUAGE" --output "$OUTPUT_PATH" --model tiny
+          python pipeline/validate.py "$OUTPUT_PATH"
+      - name: Commit transcript draft
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pipeline/transcripts
+          git diff --cached --quiet || (git commit -m "chore: add authorized transcript draft" && git push)
