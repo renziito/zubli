@@ -33,20 +33,21 @@ async function youtubeGet(endpoint, params) {
 function buildQueries(topic, language) {
   const subject = (topic || "").trim();
   const presets = {
-    en: ["short English conversation", "English dialogue listening practice", "daily English conversation short"],
-    es: ["conversación corta en español", "diálogo en español para escuchar", "conversación cotidiana español"],
-    fr: ["courte conversation en français", "dialogue français compréhension orale", "conversation quotidienne français"],
-    de: ["kurzer Dialog auf Deutsch", "Deutsch Hörverstehen Dialog", "Alltagsgespräch Deutsch kurz"],
-    it: ["breve conversazione in italiano", "dialogo italiano ascolto", "conversazione quotidiana italiano"],
-    ja: ["短い日本語会話", "日本語 会話 リスニング", "日常会話 日本語"]
+    en: ["movie scene dialogue", "TV series scene conversation", "film clip dialogue"],
+    es: ["escena de película diálogo", "escena de serie conversación", "fragmento de película diálogo"],
+    fr: ["scène de film dialogue", "scène de série conversation", "extrait de film dialogue"],
+    de: ["Filmszene Dialog", "Serienszene Gespräch", "Filmausschnitt Dialog"],
+    it: ["scena di film dialogo", "scena di serie TV conversazione", "clip film dialogo"],
+    ja: ["映画の会話シーン", "ドラマの会話シーン", "映画の短いシーン セリフ"]
   };
 
   const base = presets[language] || presets.en;
-  return [...new Set([
-    ...(subject ? [subject] : []),
+  if (!subject) return base;
+
+  return [
     ...base,
-    ...(subject ? base.map(query => `${query} ${subject}`) : [])
-  ])].slice(0, 6);
+    ...base.slice(0, 2).map(query => `${query} ${subject}`)
+  ];
 }
 
 export async function searchClips({ language = "en", topic = "" }) {
@@ -94,8 +95,8 @@ export async function searchClips({ language = "en", topic = "" }) {
     if (
       !video.status?.embeddable ||
       video.contentDetails?.caption !== "true" ||
-      duration < CONFIG.MIN_DURATION_SECONDS ||
-      duration > CONFIG.MAX_DURATION_SECONDS
+      duration <= 0 ||
+      duration >= 150
     ) continue;
 
     unique.set(video.id, {
@@ -108,7 +109,5 @@ export async function searchClips({ language = "en", topic = "" }) {
     });
   }
 
-  return [...unique.values()].sort(
-    (a, b) => Math.abs(a.duration - 90) - Math.abs(b.duration - 90)
-  );
+  return [...unique.values()];
 }
