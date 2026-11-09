@@ -15,6 +15,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Configure browser YouTube API key
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          if [ -z "$YOUTUBE_API_KEY" ]; then
+            echo "::error::Missing YOUTUBE_API_KEY in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          python - <<'PY'
+          import json, os
+          key = os.environ["YOUTUBE_API_KEY"]
+          with open("js/config.js", "w", encoding="utf-8") as f:
+              f.write(
+                  "export const CONFIG=Object.freeze({"
+                  + "YOUTUBE_API_KEY:" + json.dumps(key) + ","
+                  + "YOUTUBE_MAX_RESULTS:25,"
+                  + "MIN_DURATION_SECONDS:60,"
+                  + "MAX_DURATION_SECONDS:120"
+                  + "});\n"
+              )
+          PY
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
