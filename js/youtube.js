@@ -13,41 +13,42 @@ function durationToSeconds(value = "") {
 async function youtubeGet(endpoint, params) {
   const url = new URL(`${API_BASE}/${endpoint}`);
   Object.entries({ ...params, key: CONFIG.YOUTUBE_API_KEY }).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, String(value));
-    }
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   });
 
   const response = await fetch(url);
   const payload = await response.json().catch(() => ({}));
-
   if (!response.ok) {
     const reason = payload?.error?.errors?.[0]?.reason;
-    const message = payload?.error?.message || response.statusText;
-    throw new Error(`YouTube API (${response.status}${reason ? ` / ${reason}` : ""}): ${message}`);
+    throw new Error(`YouTube API (${response.status}${reason ? ` / ${reason}` : ""}): ${payload?.error?.message || response.statusText}`);
   }
-
   return payload;
 }
 
+const SEARCH_TERMS = {
+  en: ["movie scene", "TV series scene", "film clip"],
+  es: ["escena de película", "escena de serie", "fragmento de película"],
+  fr: ["scène de film", "scène de série", "extrait de film"],
+  de: ["Filmszene", "Serienszene", "Filmausschnitt"],
+  it: ["scena di film", "scena di serie TV", "clip di film"],
+  ja: ["映画のシーン", "ドラマのシーン", "映画の短い場面"]
+};
+
 function buildQueries(topic, language) {
+  const terms = SEARCH_TERMS[language] || SEARCH_TERMS.en;
   const subject = (topic || "").trim();
-  const presets = {
-    en: ["movie scene dialogue", "TV series scene conversation", "film clip dialogue"],
-    es: ["escena de película diálogo", "escena de serie conversación", "fragmento de película diálogo"],
-    fr: ["scène de film dialogue", "scène de série conversation", "extrait de film dialogue"],
-    de: ["Filmszene Dialog", "Serienszene Gespräch", "Filmausschnitt Dialog"],
-    it: ["scena di film dialogo", "scena di serie TV conversazione", "clip film dialogo"],
-    ja: ["映画の会話シーン", "ドラマの会話シーン", "映画の短いシーン セリフ"]
-  };
+  return subject
+    ? terms.map(term => `${term} ${subject}`)
+    : terms;
+}
 
-  const base = presets[language] || presets.en;
-  if (!subject) return base;
-
-  return [
-    ...base,
-    ...base.slice(0, 2).map(query => `${query} ${subject}`)
-  ];
+function matchesSelectedLanguage(video, language) {
+  const declared = (
+    video.snippet?.defaultAudioLanguage ||
+    video.snippet?.defaultLanguage ||
+    ""
+  ).toLowerCase();
+  return declared === language || declared.startsWith(language + "-");
 }
 
 export async function searchClips({ language = "en", topic = "" }) {
@@ -56,25 +57,20 @@ export async function searchClips({ language = "en", topic = "" }) {
   }
 
   const queries = buildQueries(topic, language);
-  const searchResponses = await Promise.all(
-    queries.map(q => youtubeGet("search", {
-      part: "snippet",
-      type: "video",
-      videoCaption: "closedCaption",
-      videoEmbeddable: "true",
-      videoDuration: "short",
-      relevanceLanguage: language,
-      maxResults: 50,
-      q
-    }))
-  );
+  const searchResponses = await Promise.all(queries.map(q => youtubeGet("search", {
+    part: "snippet",
+    type: "video",
+    videoCaption: "closedCaption",
+    videoEmbeddable: "true",
+    videoDuration: "short",
+    relevanceLanguage: language,
+    maxResults: 50,
+    q
+  })));
 
   const ids = [...new Set(searchResponses.flatMap(result =>
-    (result.items || [])
-      .map(item => item.id?.videoId)
-      .filter(Boolean)
+    (result.items || []).map(item => item.id?.videoId).filter(Boolean)
   ))];
-
   if (!ids.length) return [];
 
   const detailResponses = await Promise.all(
@@ -86,17 +82,15 @@ export async function searchClips({ language = "en", topic = "" }) {
     )
   );
 
-  const videos = detailResponses.flatMap(result => result.items || []);
   const unique = new Map();
-
-  for (const video of videos) {
+  for (const video of detailResponses.flatMap(result => result.items || [])) {
     const duration = durationToSeconds(video.contentDetails?.duration);
-
     if (
       !video.status?.embeddable ||
       video.contentDetails?.caption !== "true" ||
       duration <= 0 ||
-      duration >= 150
+      duration >= 150 ||
+      !matchesSelectedLanguage(video, language)
     ) continue;
 
     unique.set(video.id, {
@@ -105,9 +99,9 @@ export async function searchClips({ language = "en", topic = "" }) {
       channel: video.snippet?.channelTitle || "",
       thumbnail: video.snippet?.thumbnails?.medium?.url || "",
       duration,
-      language
+      language,
+      audioLanguage: video.snippet?.defaultAudioLanguage || video.snippet?.defaultLanguage || ""
     });
   }
-
   return [...unique.values()];
 }
