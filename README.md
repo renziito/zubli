@@ -2,27 +2,39 @@
 
 **El mundo habla. Tú lo entiendes.**
 
-Aplicación web estática para practicar comprensión auditiva con clips breves. La interfaz se publica en GitHub Pages y los procesos de descubrimiento/transcripción se ejecutan en GitHub Actions.
+ZUBLI ayuda a practicar comprensión auditiva con fragmentos de películas y series en el idioma original. Los videos se reproducen desde sus plataformas; ZUBLI no descarga ni aloja películas.
 
-## Duración de los clips
+## Fuentes integradas
 
-ZUBLI busca clips de cualquier duración positiva inferior a 150 segundos (menos de 2 minutos y 30 segundos). No exige que duren exactamente 90 o 120 segundos.
+- **Internet Archive:** busca películas y registros con subtítulos SRT/VTT y metadatos de licencia abierta. Se descartan registros sin una licencia abierta identificable.
+- **PeerTube:** busca videos por idioma, consulta las pistas CC mediante la API de cada instancia y acepta licencias abiertas (Attribution, Attribution-ShareAlike y dominio público).
+- **Wikimedia Commons:** busca archivos de video, consulta las pistas TimedText y exige licencia abierta.
+- **YouTube:** se mantiene fuera del flujo automático de ejercicios porque su API pública no permite descargar los subtítulos de videos arbitrarios.
 
-## Límite importante de YouTube
+La disponibilidad real depende del catálogo de cada proveedor, sus políticas CORS, sus condiciones y la presencia de subtítulos. Un resultado solo se ofrece para práctica si se encontró una pista de subtítulos en el idioma elegido.
 
-La API oficial permite descubrir videos que anuncian subtítulos, pero no descargar los subtítulos de cualquier video público. Por eso ZUBLI no extrae audio ni captions de YouTube. Los ejercicios solo pueden publicarse cuando existe una transcripción autorizada y revisada. Los videos sin ella se omiten.
+## Fragmentos y ejercicios
 
-## Configuración
+- El video original puede ser una obra larga.
+- ZUBLI agrupa las entradas originales de subtítulos en fragmentos contiguos de menos de 150 segundos.
+- Se conservan los tiempos de inicio y fin de cada entrada; no se inventan marcas temporales internas.
+- El reproductor se abre en la plataforma original y se intenta posicionar en el inicio del fragmento. El soporte de posicionamiento depende del proveedor.
+- La evaluación compara el texto escrito con la pista original normalizando mayúsculas, acentos y puntuación.
 
-1. En Settings → Secrets and variables → Actions, agrega `YOUTUBE_API_KEY`.
-2. Restringe la clave de Google Cloud a YouTube Data API v3.
-3. El workflow de Pages inyecta la clave durante la compilación desde el secreto de Actions.
-4. En Settings → Pages, selecciona **GitHub Actions** como source.
+## Privacidad y derechos
 
-## Workflows
+ZUBLI no aloja archivos de video ni intenta extraer medios de plataformas cerradas. Las pistas de subtítulos se consultan desde el proveedor. Solo se aceptan licencias identificables como Creative Commons BY/BY-SA, CC0, Public Domain Mark o las licencias abiertas equivalentes anunciadas por PeerTube. Cada fuente puede imponer condiciones adicionales; revisa la página original y atribuye al creador cuando corresponda.
 
-- `daily-discovery.yml`: búsqueda diaria de candidatos de menos de 150 segundos.
-- `transcribe-authorized-audio.yml`: transcripción manual de audio que tengas derecho a procesar. No acepta URLs de YouTube.
-- `deploy-pages.yml`: publica el sitio en GitHub Pages al actualizar `main`.
+La licencia abierta del video no siempre demuestra por sí sola que la pista de subtítulos tenga idéntica licencia. El catálogo debe respetar cualquier condición específica del proveedor o del creador.
 
-Whisper produce borradores; la validación automática comprueba estructura y tiempos, no exactitud. Requiere revisión humana antes de convertirlos en ejercicios.
+## Publicación
+
+GitHub Pages se despliega mediante `.github/workflows/deploy-pages.yml`. No necesita API key ni secreto para las fuentes integradas. Las consultas se realizan desde el navegador; si una instancia bloquea CORS o no responde, ZUBLI la omite y sigue con las demás.
+
+## Limitaciones conocidas
+
+- No hay garantía de encontrar títulos comerciales recientes: sus videos y subtítulos suelen estar sujetos a derechos y restricciones de plataforma.
+- Internet Archive y Wikimedia se orientan principalmente a contenido histórico, abierto o de dominio público.
+- PeerTube es federado y su catálogo varía por instancia.
+- Los subtítulos automáticos o aportados por usuarios pueden contener errores. La evaluación es literal respecto a la pista obtenida.
+- El control de inicio del reproductor externo depende de las capacidades de cada plataforma.
