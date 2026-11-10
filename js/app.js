@@ -1,6 +1,6 @@
 import{searchAllSources}from"./providers.js";import{parseCaptions,makeExercises}from"./captions.js";
 const $=id=>document.getElementById(id);
-const state={video:null,exercises:[],index:0,player:null,playerPromise:null,media:null,volume:0.8,activeSegment:null,segmentToken:0,finished:false};
+const state={video:null,exercises:[],index:0,player:null,playerPromise:null,media:null,volume:0.8,activeSegment:null,segmentToken:0,finished:false,hintLevel:0};
 
 function show(id){["home","practice","progress"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -166,7 +166,7 @@ function renderExercise(){
   playSegment();
 }
 
-function normalize(value){
+function renderHint(){\n  const exercise=state.exercises[state.index];\n  if(!exercise)return;\n  const words=exercise.text.match(/\\S+|\\s+/g)||[];\n  $("hint").textContent=words.map(token=>{\n    if(/^\\s+$/.test(token))return token;\n    const chars=[...token];\n    const letters=chars.filter(char=>/[\\p{L}\\p{N}]/u.test(char));\n    if(!letters.length)return token;\n    const revealCount=state.hintLevel===0?0:state.hintLevel===1?1:Math.min(letters.length,2);\n    let seen=0;\n    return chars.map(char=>{if(!/[\\p{L}\\p{N}]/u.test(char))return char;seen++;return seen<=revealCount?char:"_"}).join("");\n  }).join("");\n  $("hintBtn").textContent=state.hintLevel===0?"Pista":state.hintLevel===1?"Más pista":"Pista usada";\n  $("hintBtn").disabled=state.hintLevel>=2;\n}\n\nfunction revealCorrectAnswer(){\n  const exercise=state.exercises[state.index];\n  if(!exercise)return;\n  $("feedback").textContent="Respuesta correcta: "+exercise.text;\n  $("checkBtn").classList.add("hidden");\n  $("hintBtn").classList.add("hidden");\n  $("skipBtn").classList.add("hidden");\n  $("nextBtn").classList.remove("hidden");\n  $("nextBtn").textContent=state.index===state.exercises.length-1?"Finalizar":"Siguiente frase";\n}\n\nfunction normalize(value){
   return value.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[.,!?¿¡;:'"“”‘’()\-]/g," ").replace(/\s+/g," ").trim();
 }
@@ -195,8 +195,9 @@ $("checkBtn").onclick=()=>{
     $("nextBtn").classList.remove("hidden");
   }else $("feedback").textContent="No coincide todavía. Escucha otra vez e inténtalo.";
 };
+$("hintBtn").onclick=()=>{if(state.hintLevel<2){state.hintLevel++;renderHint()}};
 $("nextBtn").onclick=()=>{state.index++;renderExercise()};
-$("skipBtn").onclick=()=>{state.index++;renderExercise()};
+$("skipBtn").onclick=revealCorrectAnswer;
 $("backBtn").onclick=()=>{state.activeSegment=null;if(state.player)state.player.pause().catch(()=>{});if(state.media)state.media.pause();show("home")};
 $("progressBtn").onclick=()=>{show("progress");$("stats").textContent="Prácticas completadas: "+(localStorage.getItem("zubli_completed")||"0")};
 $("homeBackBtn").onclick=()=>show("home");
