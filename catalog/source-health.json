@@ -1,0 +1,29 @@
+{
+  "checked_at": "2026-11-10T16:25:03.656951+00:00",
+  "sources": {
+    "internet_archive": {
+      "available": true,
+      "http_status": 200
+    },
+    "wikimedia_commons": {
+      "available": true,
+      "http_status": 200
+    },
+    "peertube_diode": {
+      "available": true,
+      "http_status": 200
+    },
+    "peertube_tilvids": {
+      "available": true,
+      "http_status": 200
+    },
+    "peertube_tv": {
+      "available": true,
+      "http_status": 200
+    },
+    "peertube_blender": {
+      "available": true,
+      "http_status": 200
+    }
+  }
+}
