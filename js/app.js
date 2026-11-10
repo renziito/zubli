@@ -170,7 +170,19 @@ function renderExercise(){
   playSegment();
 }
 
-function renderHint(){\n  const exercise=state.exercises[state.index];\n  if(!exercise)return;\n  const words=exercise.text.match(/\\S+|\\s+/g)||[];\n  $("hint").textContent=words.map(token=>{\n    if(/^\\s+$/.test(token))return token;\n    const chars=[...token];\n    const letters=chars.filter(char=>/[\\p{L}\\p{N}]/u.test(char));\n    if(!letters.length)return token;\n    const revealCount=state.hintLevel===0?0:state.hintLevel===1?1:Math.min(letters.length,2);\n    let seen=0;\n    return chars.map(char=>{if(!/[\\p{L}\\p{N}]/u.test(char))return char;seen++;return seen<=revealCount?char:"_"}).join("");\n  }).join("");\n  $("hintBtn").textContent=state.hintLevel===0?"Pista":state.hintLevel===1?"Más pista":"Pista usada";\n  $("hintBtn").disabled=state.hintLevel>=2;\n}\n\nfunction revealCorrectAnswer(){\n  const exercise=state.exercises[state.index];\n  if(!exercise)return;\n  $("feedback").textContent="Respuesta correcta: "+exercise.text;\n  $("checkBtn").classList.add("hidden");\n  $("hintBtn").classList.add("hidden");\n  $("skipBtn").classList.add("hidden");\n  $("nextBtn").classList.remove("hidden");\n  $("nextBtn").textContent=state.index===state.exercises.length-1?"Finalizar":"Siguiente frase";\n}\n\nfunction normalize(value){
+function revealCorrectAnswer(){
+  const exercise=state.exercises[state.index];
+  if(!exercise)return;
+  $("hint").textContent=exercise.text;
+  $("feedback").textContent="Esta es la solución correcta.";
+  $("checkBtn").classList.add("hidden");
+  $("hintBtn").classList.add("hidden");
+  $("skipBtn").classList.add("hidden");
+  $("nextBtn").classList.remove("hidden");
+  $("nextBtn").textContent=state.index===state.exercises.length-1?"Finalizar":"Siguiente frase";
+}
+
+function normalize(value){
   return value.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[.,!?¿¡;:'"“”‘’()\-]/g," ").replace(/\s+/g," ").trim();
 }
@@ -196,7 +208,10 @@ $("checkBtn").onclick=()=>{
   if(normalize(actual)===normalize(exercise.text)){
     $("feedback").textContent="¡Correcto!";
     $("checkBtn").classList.add("hidden");
+    $("hintBtn").classList.add("hidden");
+    $("skipBtn").classList.add("hidden");
     $("nextBtn").classList.remove("hidden");
+    $("nextBtn").textContent=state.index===state.exercises.length-1?"Finalizar":"Siguiente frase";
   }else $("feedback").textContent="No coincide todavía. Escucha otra vez e inténtalo.";
 };
 $("hintBtn").onclick=revealCorrectAnswer;
