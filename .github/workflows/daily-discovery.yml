@@ -1,4 +1,4 @@
-name: Daily YouTube discovery
+name: Daily provider health check
 on:
   schedule:
     - cron: "17 8 * * *"
@@ -6,10 +6,10 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: zubli-discovery
+  group: zubli-provider-health
   cancel-in-progress: false
 jobs:
-  discover:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,13 +17,10 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install requests==2.32.3
-      - name: Discover candidate metadata only
-        env:
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-        run: python pipeline/discover.py
-      - name: Commit discovery metadata
+      - run: python pipeline/check_sources.py
+      - name: Commit source health report
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pipeline/discovered
-          git diff --cached --quiet || (git commit -m "chore: refresh discovery candidates" && git push)
+          git add catalog/source-health.json
+          git diff --cached --quiet || (git commit -m "chore: update provider health report" && git push)
