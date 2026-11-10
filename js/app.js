@@ -1,1 +1,151 @@
-import{searchClips}from"./youtube.js";const $=id=>document.getElementById(id);function show(id){["home","practice","progress"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}function render(items){$("results").innerHTML=items.map(v=>`<article class="video-card"><img src="${esc(v.thumbnail||"")}" alt=""><div><h3>${esc(v.title)}</h3><p>${esc(v.channel)} · ${Math.floor(v.duration/60)}:${String(v.duration%60).padStart(2,"0")}</p><p>Subtítulos anunciados, pero no hay transcripción autorizada disponible. No se puede iniciar este clip como ejercicio.</p><button disabled title="Requiere transcripción autorizada y verificada">Sin transcripción</button></div></article>`).join("")}$("searchBtn").onclick=async()=>{ $("status").textContent="Buscando videos…";$("results").innerHTML="";try{const items=await searchClips({language:$("targetLanguage").value,topic:$("topic").value.trim()});render(items);$("status").textContent=items.length?`Encontrados ${items.length} candidatos. Los candidatos no son ejercicios hasta verificar su transcripción.`:"No encontramos candidatos de 1–2 minutos."; }catch(e){$("status").textContent=e.message}};$("progressBtn").onclick=()=>{show("progress");$("stats").textContent="Tu progreso se guarda localmente en este dispositivo. Todavía no hay ejercicios completados."};$("backBtn").onclick=()=>show("home");$("homeBackBtn").onclick=()=>show("home");if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+import { searchAllSources } from "./providers.js";
+import { parseCaptions, makeExercises } from "./captions.js";
+
+const $ = id => document.getElementById(id);
+const state = { video: null, exercises: [], index: 0, attempts: 0, completed: 0 };
+
+function show(id) {
+  ["home", "practice", "progress"].forEach(section => $(section).classList.toggle("hidden", section !== id));
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
+
+function durationLabel(seconds) {
+  if (!seconds) return "Duración no disponible";
+  return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+}
+
+function render(items) {
+  $("results").innerHTML = items.map((video, index) => `
+    <article class="video-card">
+      <img src="${escapeHtml(video.thumbnail)}" alt="" loading="lazy">
+      <div>
+        <span class="source-tag">${escapeHtml(video.provider)}</span>
+        <h3>${escapeHtml(video.title)}</h3>
+        <p>${escapeHtml(video.creator)} · ${durationLabel(video.duration)}</p>
+        <p class="license">${escapeHtml(video.license || "Licencia no identificada")}</p>
+        <button class="primary open-video" data-index="${index}">Practicar con este video</button>
+        <p><a href="${escapeHtml(video.watchUrl)}" target="_blank" rel="noopener noreferrer">Ver en plataforma original ↗</a></p>
+      </div>
+    </article>`).join("");
+
+  $("results").querySelectorAll(".open-video").forEach(button => {
+    button.addEventListener("click", () => openPractice(items[Number(button.dataset.index)]));
+  });
+}
+
+async function openPractice(video) {
+  $("statusPractice").textContent = "Cargando subtítulos originales…";
+  $("practicePlayer").innerHTML = "";
+  show("practice");
+  state.video = video;
+
+  try {
+    const response = await fetch(video.captionUrl);
+    if (!response.ok) throw new Error("La plataforma no permitió recuperar esta pista de subtítulos.");
+    const text = await response.text();
+    const cues = parseCaptions(text, video.captionFormat);
+    state.exercises = makeExercises(cues);
+    if (!state.exercises.length) throw new Error("La pista existe, pero no contiene frases sincronizadas utilizables.");
+
+    state.index = 0;
+    state.attempts = 0;
+    $("clipTitle").textContent = video.title;
+    $("practicePlayer").innerHTML = `<iframe src="${escapeHtml(video.embedUrl)}" title="${escapeHtml(video.title)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+    $("statusPractice").textContent = `Transcripción original cargada: ${cues.length} fragmentos. ${state.exercises.length} ejercicios preparados.`;
+    renderExercise();
+  } catch (error) {
+    $("statusPractice").textContent = error.message;
+    $("exerciseArea").classList.add("hidden");
+  }
+}
+
+function renderExercise() {
+  const exercise = state.exercises[state.index];
+  if (!exercise) {
+    $("exerciseArea").classList.add("hidden");
+    $("statusPractice").textContent = "¡Terminaste esta práctica!";
+    state.completed++;
+    const saved = Number(localStorage.getItem("zubli_completed") || 0) + 1;
+    localStorage.setItem("zubli_completed", String(saved));
+    return;
+  }
+
+  $("exerciseArea").classList.remove("hidden");
+  $("counter").textContent = `Frase ${state.index + 1} de ${state.exercises.length}`;
+  $("hint").textContent = exercise.text.replace(/\S/g, "_");
+  $("answer").value = "";
+  $("feedback").textContent = "";
+  $("answer").focus();
+}
+
+function normalize(value) {
+  return value.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[.,!?¿¡;:'"“”‘’()\-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function checkAnswer() {
+  const expected = state.exercises[state.index].text;
+  const actual = $("answer").value;
+  if (!actual.trim()) {
+    $("feedback").textContent = "Escribe lo que escuchaste antes de comprobar.";
+    return;
+  }
+
+  state.attempts++;
+  if (normalize(actual) === normalize(expected)) {
+    $("feedback").textContent = "¡Correcto! Muy bien.";
+    $("nextBtn").classList.remove("hidden");
+    $("checkBtn").classList.add("hidden");
+  } else {
+    $("feedback").textContent = "Todavía no coincide. Vuelve a escuchar el fragmento e inténtalo otra vez.";
+    $("nextBtn").classList.add("hidden");
+    $("checkBtn").classList.remove("hidden");
+  }
+}
+
+$("searchBtn").addEventListener("click", async () => {
+  $("status").textContent = "Buscando en Internet Archive, PeerTube y Wikimedia Commons…";
+  $("results").innerHTML = "";
+  $("searchBtn").disabled = true;
+  try {
+    const result = await searchAllSources({
+      language: $("targetLanguage").value,
+      topic: $("topic").value.trim()
+    });
+    render(result.items);
+    $("status").textContent = result.items.length
+      ? `Encontramos ${result.items.length} videos con pistas de subtítulos disponibles.`
+      : "No encontramos videos con subtítulos verificables en las fuentes consultadas.";
+    if (result.errors.length) $("status").textContent += " Algunas fuentes no respondieron: " + result.errors.join(" · ");
+  } catch (error) {
+    $("status").textContent = error.message;
+  } finally {
+    $("searchBtn").disabled = false;
+  }
+});
+
+$("checkBtn").addEventListener("click", checkAnswer);
+$("nextBtn").addEventListener("click", () => {
+  state.index++;
+  $("nextBtn").classList.add("hidden");
+  $("checkBtn").classList.remove("hidden");
+  renderExercise();
+});
+$("skipBtn").addEventListener("click", () => {
+  state.index++;
+  renderExercise();
+});
+$("backBtn").addEventListener("click", () => show("home"));
+$("progressBtn").addEventListener("click", () => {
+  show("progress");
+  $("stats").textContent = `Prácticas completadas: ${localStorage.getItem("zubli_completed") || 0}`;
+});
+$("homeBackBtn").addEventListener("click", () => show("home"));
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
