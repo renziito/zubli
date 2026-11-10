@@ -162,7 +162,11 @@ function renderExercise(){
   $("answer").value="";
   $("feedback").textContent="";
   $("checkBtn").classList.remove("hidden");
+  $("hintBtn").classList.remove("hidden");
+  $("hintBtn").disabled=false;
+  $("skipBtn").classList.remove("hidden");
   $("nextBtn").classList.add("hidden");
+  $("nextBtn").textContent="Siguiente frase";
   playSegment();
 }
 
