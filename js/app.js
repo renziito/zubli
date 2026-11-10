@@ -199,7 +199,7 @@ $("checkBtn").onclick=()=>{
     $("nextBtn").classList.remove("hidden");
   }else $("feedback").textContent="No coincide todavía. Escucha otra vez e inténtalo.";
 };
-$("hintBtn").onclick=()=>{if(state.hintLevel<2){state.hintLevel++;renderHint()}};
+$("hintBtn").onclick=revealCorrectAnswer;
 $("nextBtn").onclick=()=>{state.index++;renderExercise()};
 $("skipBtn").onclick=revealCorrectAnswer;
 $("backBtn").onclick=()=>{state.activeSegment=null;if(state.player)state.player.pause().catch(()=>{});if(state.media)state.media.pause();show("home")};
