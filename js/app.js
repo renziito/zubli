@@ -2,7 +2,7 @@ import { searchAllSources } from "./providers.js";
 import { parseCaptions, makeExercises } from "./captions.js";
 
 const $ = id => document.getElementById(id);
-const state = { video: null, exercises: [], index: 0, attempts: 0, completed: 0 };
+const state = { video: null, exercises: [], index: 0, completed: 0 };
 
 function show(id) {
   ["home", "practice", "progress"].forEach(section => $(section).classList.toggle("hidden", section !== id));
@@ -15,7 +15,7 @@ function escapeHtml(value) {
 }
 
 function durationLabel(seconds) {
-  if (!seconds) return "Duración no disponible";
+  if (!seconds) return "Duración de origen variable";
   return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
 }
 
@@ -38,9 +38,32 @@ function render(items) {
   });
 }
 
+function setPlayerPosition(exercise) {
+  const player = $("practicePlayer");
+  if (state.video.provider === "Wikimedia Commons") {
+    const media = player.querySelector("video");
+    if (media) {
+      media.currentTime = exercise.start;
+      media.play().catch(() => {});
+    }
+    return;
+  }
+
+  const frame = player.querySelector("iframe");
+  if (!frame) return;
+  const url = new URL(state.video.embedUrl);
+  url.searchParams.set("start", String(Math.floor(exercise.start)));
+  url.searchParams.set("autoplay", "1");
+  if (state.video.provider === "Internet Archive") {
+    url.hash = "t=" + Math.floor(exercise.start);
+  }
+  frame.src = url.href;
+}
+
 async function openPractice(video) {
   $("statusPractice").textContent = "Cargando subtítulos originales…";
   $("practicePlayer").innerHTML = "";
+  $("exerciseArea").classList.add("hidden");
   show("practice");
   state.video = video;
 
@@ -48,19 +71,21 @@ async function openPractice(video) {
     const response = await fetch(video.captionUrl);
     if (!response.ok) throw new Error("La plataforma no permitió recuperar esta pista de subtítulos.");
     const text = await response.text();
-    const cues = parseCaptions(text, video.captionFormat);
+    const cues = parseCaptions(text);
     state.exercises = makeExercises(cues);
-    if (!state.exercises.length) throw new Error("La pista existe, pero no contiene frases sincronizadas utilizables.");
+    if (!state.exercises.length) throw new Error("La pista no contiene fragmentos sincronizados de menos de 150 segundos.");
 
     state.index = 0;
-    state.attempts = 0;
     $("clipTitle").textContent = video.title;
-    $("practicePlayer").innerHTML = `<iframe src="${escapeHtml(video.embedUrl)}" title="${escapeHtml(video.title)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
-    $("statusPractice").textContent = `Transcripción original cargada: ${cues.length} fragmentos. ${state.exercises.length} ejercicios preparados.`;
+    if (video.provider === "Wikimedia Commons") {
+      $("practicePlayer").innerHTML = `<video controls playsinline preload="metadata" src="${escapeHtml(video.embedUrl)}"></video>`;
+    } else {
+      $("practicePlayer").innerHTML = `<iframe src="${escapeHtml(video.embedUrl)}" title="${escapeHtml(video.title)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+    }
+    $("statusPractice").textContent = `Subtítulos originales cargados: ${cues.length} entradas. ${state.exercises.length} fragmentos preparados.`;
     renderExercise();
   } catch (error) {
     $("statusPractice").textContent = error.message;
-    $("exerciseArea").classList.add("hidden");
   }
 }
 
@@ -69,18 +94,19 @@ function renderExercise() {
   if (!exercise) {
     $("exerciseArea").classList.add("hidden");
     $("statusPractice").textContent = "¡Terminaste esta práctica!";
-    state.completed++;
     const saved = Number(localStorage.getItem("zubli_completed") || 0) + 1;
     localStorage.setItem("zubli_completed", String(saved));
     return;
   }
 
   $("exerciseArea").classList.remove("hidden");
-  $("counter").textContent = `Frase ${state.index + 1} de ${state.exercises.length}`;
+  $("counter").textContent = `Fragmento ${state.index + 1} de ${state.exercises.length} · ${Math.round(exercise.end - exercise.start)} segundos`;
   $("hint").textContent = exercise.text.replace(/\S/g, "_");
   $("answer").value = "";
   $("feedback").textContent = "";
-  $("answer").focus();
+  $("nextBtn").classList.add("hidden");
+  $("checkBtn").classList.remove("hidden");
+  setPlayerPosition(exercise);
 }
 
 function normalize(value) {
@@ -96,20 +122,17 @@ function checkAnswer() {
     return;
   }
 
-  state.attempts++;
   if (normalize(actual) === normalize(expected)) {
     $("feedback").textContent = "¡Correcto! Muy bien.";
     $("nextBtn").classList.remove("hidden");
     $("checkBtn").classList.add("hidden");
   } else {
     $("feedback").textContent = "Todavía no coincide. Vuelve a escuchar el fragmento e inténtalo otra vez.";
-    $("nextBtn").classList.add("hidden");
-    $("checkBtn").classList.remove("hidden");
   }
 }
 
 $("searchBtn").addEventListener("click", async () => {
-  $("status").textContent = "Buscando en Internet Archive, PeerTube y Wikimedia Commons…";
+  $("status").textContent = "Buscando videos y comprobando subtítulos en varias plataformas…";
   $("results").innerHTML = "";
   $("searchBtn").disabled = true;
   try {
@@ -119,9 +142,9 @@ $("searchBtn").addEventListener("click", async () => {
     });
     render(result.items);
     $("status").textContent = result.items.length
-      ? `Encontramos ${result.items.length} videos con pistas de subtítulos disponibles.`
+      ? `Encontramos ${result.items.length} videos con subtítulos originales disponibles.`
       : "No encontramos videos con subtítulos verificables en las fuentes consultadas.";
-    if (result.errors.length) $("status").textContent += " Algunas fuentes no respondieron: " + result.errors.join(" · ");
+    if (result.errors.length) $("status").textContent += " Fuentes no disponibles: " + result.errors.join(" · ");
   } catch (error) {
     $("status").textContent = error.message;
   } finally {
@@ -132,8 +155,6 @@ $("searchBtn").addEventListener("click", async () => {
 $("checkBtn").addEventListener("click", checkAnswer);
 $("nextBtn").addEventListener("click", () => {
   state.index++;
-  $("nextBtn").classList.add("hidden");
-  $("checkBtn").classList.remove("hidden");
   renderExercise();
 });
 $("skipBtn").addEventListener("click", () => {
