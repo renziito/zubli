@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-11-19T17:22:23.299810+00:00",
+  "checked_at": "2026-11-20T16:57:49.536032+00:00",
   "sources": {
     "internet_archive": {
       "available": true,
@@ -10,8 +10,8 @@
       "http_status": 200
     },
     "peertube_diode": {
-      "available": true,
-      "http_status": 200
+      "available": false,
+      "error": "HTTPSConnectionPool(host='diode.zone', port=443): Max retries exceeded with url: /api/v1/config (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1018)')))"
     },
     "peertube_tilvids": {
       "available": true,
